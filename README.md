@@ -16,7 +16,7 @@ Projeto de aprendizado/portfólio - backend em **Python (FastAPI)** e frontend e
 - Cancelamento automático do processo caso a página seja fechada (com tolerância para reload)
 - Link de download temporário (expira em 5 minutos), sem manter arquivos salvos no servidor
 - Rate limiting por IP (`slowapi`)
-- Containerizado com Docker — um único container: o próprio FastAPI serve o frontend estático
+- Containerizado com Docker - um único container: o próprio FastAPI serve o frontend estático
 
 ## Tecnologias
 
@@ -24,7 +24,7 @@ Projeto de aprendizado/portfólio - backend em **Python (FastAPI)** e frontend e
 
 **Frontend:** HTML, CSS e JavaScript puro (Fetch API, EventSource/SSE, sessionStorage)
 
-**Infraestrutura:** Docker (container único — FastAPI serve API e frontend juntos)
+**Infraestrutura:** Docker (container único - FastAPI serve API e frontend juntos)
 
 ## Endpoints da API
 
@@ -124,14 +124,9 @@ yt_api/
 
 ## Limitações conhecidas
 
-- Sem autenticação de usuário (escopo do projeto não exige)
-- Progresso e limites de requisição ficam em memória — são reiniciados junto com o servidor
+- Progresso e limites de requisição ficam em memória - são reiniciados junto com o servidor
 - Progresso de conversão é calculado a partir da duração total do vídeo, não é um percentual exato de todos os cenários
 - Conversão de vídeo tenta copiar o stream sem recodificar (`-c copy`); quando o codec não é compatível com o container de destino, recodifica com `libx264`/`aac`
-
-## Próximos passos
-
-Versão separada com backend em Node.js e frontend em React, para deploy web.
 
 ## Autor
 
