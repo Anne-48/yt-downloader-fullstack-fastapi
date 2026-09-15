@@ -2,7 +2,7 @@
 
 API fullstack para buscar informações de vídeos do YouTube, baixar nos formatos disponíveis e converter (áudio/vídeo) via `ffmpeg`, com progresso em tempo real.
 
-Projeto de aprendizado/portfólio — backend em **Python (FastAPI)** e frontend em **HTML/CSS/JavaScript puro** (sem framework).
+Projeto de aprendizado/portfólio - backend em **Python (FastAPI)** e frontend em **HTML/CSS/JavaScript puro** (sem framework).
 
 > **Nota:** projeto pensado para rodar localmente. Frontend e backend se comunicam entre si na mesma máquina/container — não há deploy público nem exposição externa configurada.
 
