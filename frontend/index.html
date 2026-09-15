@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YT Downloader</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <h1>YT Downloader</h1>
+    <p id="backendStatus"></p>
+
+    <div>
+        <input type="text" id="videoUrl" placeholder="URL do vídeo">
+        <button id="buscarInfo" onclick="buscarInfo()">Enviar</button>
+    </div>
+
+    <div id="infoBox">
+        <spam>Info</spam>
+    </div>
+
+    <div id="formatosBox">
+        <spam>Formatos</spam>
+        <div id="infoVideo">Video</div>
+        <div id="infoAudio">Audio</div>
+        <button id="downloadFormato" onclick="downloadFormato()">Download</button>
+        <span id="avisoDownloadFormato" class="aviso-vermelho"></span>
+    </div>
+    <br><br>
+    <div id="conversorBox">
+        <spam>Conversor</spam>
+        <div id="conversorVideo"></div>
+        <div id="conversorAudio"></div>
+        <button id="downloadConversor" onclick="downloadConversor()">Converter e fazer Download</button>
+        <span id="avisoDownloadConversor" class="aviso-vermelho"></span>
+    </div>
+
+    <div id="downloadLinkBox"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
