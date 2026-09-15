@@ -20,13 +20,13 @@ function acompanharProgresso(downloadId, botao, textoFinal, avisoId) {
             eventSource.close();
             sessionStorage.removeItem('activeDownload');
 
-            botao.textContent = '✅ Pronto!';
+            botao.textContent = 'Pronto!';
             document.getElementById(avisoId).textContent =
                 'Faça download do arquivo no final da página';
 
             document.getElementById('downloadLinkBox').innerHTML =
                 `<p>Clique no link abaixo para fazer o download:</p>
-                 <a id="finalDownloadLink" href="/file/${downloadId}" download="${data.filename}">📥 ${data.filename}</a>`;
+                 <a id="finalDownloadLink" href="/file/${downloadId}" download="${data.filename}"> ${data.filename}</a>`;
 
             document
                 .getElementById('finalDownloadLink')
@@ -88,14 +88,14 @@ function buscarInfo() {
 
     const botao = document.getElementById('buscarInfo');
     botao.textContent = 'Buscando...';
-    botao.style.backgroundColor = 'orange';
     botao.disabled = true;
 
     fetch(`/info?url=${encodeURIComponent(videoUrl)}`)
         .then((response) => response.json())
         .then((data) => {
             document.getElementById('infoBox').innerHTML = `
-                <h3>${data.title}</h3>
+               <img src="${data.thumbnail}" alt="Thumbnail do vídeo" style="width: 320px; max-width: 100%; border-radius: 6px; display: block; margin-bottom: 12px;">
+                <h2>${data.title}</h2>
                 <p><strong>Canal:</strong> ${data.channel}</p>
                 <p><strong>Duração:</strong> ${formatarDuracao(data.duration)}</p>
                 <p><strong>Visualizações:</strong> ${data.view_count.toLocaleString('pt-BR')}</p>
@@ -110,7 +110,7 @@ function buscarInfo() {
             );
 
             document.getElementById('infoVideo').innerHTML =
-                `<h4>Vídeo</h4>` +
+                `<h3>Vídeo</h3>` +
                 videoFormats
                     .map(
                         (f) =>
@@ -119,7 +119,7 @@ function buscarInfo() {
                     .join('<br>');
 
             document.getElementById('infoAudio').innerHTML =
-                `<h4>Áudio</h4>` +
+                `<h3>Áudio</h3>` +
                 audioFormats
                     .map(
                         (f) =>
@@ -251,7 +251,7 @@ function carregarFormatosConversao() {
         })
         .then((data) => {
             document.getElementById('conversorVideo').innerHTML =
-                `<h4>Vídeo</h4>` +
+                `<h3>Vídeo</h3>` +
                 data.video
                     .map(
                         (fmt) =>
@@ -260,7 +260,7 @@ function carregarFormatosConversao() {
                     .join('<br>');
 
             document.getElementById('conversorAudio').innerHTML =
-                `<h4>Áudio</h4>` +
+                `<h3>Áudio</h3>` +
                 data.audio
                     .map(
                         (fmt) =>
@@ -270,7 +270,7 @@ function carregarFormatosConversao() {
         })
         .catch((error) => {
             status.innerHTML = `
-                <strong>Backend não conectado!</strong><br>
+                <strong>Backend não está conectado!</strong><br>
                 - O servidor não está rodando<br>
                 - Porta errada<br>
                 - CORS bloqueando requisição<br>
