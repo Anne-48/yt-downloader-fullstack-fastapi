@@ -134,7 +134,7 @@ yt_api/
 - Conversão de vídeo tenta copiar o stream sem recodificar (`-c copy`); quando o codec não é compatível com o container de destino, recodifica com `libx264`/`aac`
 - Legendas filtradas para inglês (original) e português brasileiro (`pt-BR`); vídeos que só oferecem `pt` genérico (sem distinguir Brasil/Portugal) não mostram legenda em pt-BR
 
-## Autora
+## Autor
 
 Anne Szczypior Pinheiro Lima
 [LinkedIn](https://www.linkedin.com/in/anne-s-pinheiro-lima-16a607424/)
