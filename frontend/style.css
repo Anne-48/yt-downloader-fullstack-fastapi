@@ -1,102 +1,266 @@
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 body {
-    font-family:
-        system-ui,
-        -apple-system,
-        sans-serif;
-    max-width: 700px;
-    margin: 40px auto;
-    padding: 0 20px;
-    background-color: #f5f5f5;
-    color: #222;
+  font-family:
+    Ubuntu,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Oxygen,
+    Cantarell,
+    sans-serif;
+  max-width: 680px;
+  margin: 48px auto;
+  padding: 0 20px 60px;
+  background-color: #15171c;
+  color: #e8e9ec;
+  line-height: 1.5;
 }
 
 h1 {
-    text-align: center;
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 1.4em;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 2px;
+}
+
+h1::after {
+  content: 'Baixe e converta vídeos do YouTube';
+  display: block;
+  font-family:
+    Ubuntu,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    Oxygen,
+    Cantarell,
+    sans-serif;
+  font-size: 0.55em;
+  font-weight: 400;
+  color: #7d818c;
+  margin-top: 4px;
+}
+
+h3 {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: #c4c7cf;
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2c3038;
+}
+
+h4 {
+  font-size: 1em;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+
+#infoVideo h4,
+#conversorVideo h4 {
+  color: #5b8def;
+}
+
+#infoAudio h4,
+#conversorAudio h4 {
+  color: #4fb286;
 }
 
 #backendStatus {
-    text-align: center;
-    font-size: 0.9em;
+  text-align: left;
+  font-size: 0.85em;
+  min-height: 1.2em;
+}
+
+.barra-url {
+  display: flex;
+  gap: 8px;
+}
+
+.barra-url input[type='text'] {
+  flex: 1;
 }
 
 input[type='text'] {
-    width: 70%;
-    padding: 10px;
-    font-size: 1em;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+  padding: 11px 14px;
+  font-size: 0.95em;
+  background-color: #1e2128;
+  border: 1px solid #2c3038;
+  border-radius: 6px;
+  color: #e8e9ec;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+input[type='text']:focus {
+  outline: none;
+  border-color: #5b8def;
+  box-shadow: 0 0 0 3px rgba(91, 141, 239, 0.15);
+}
+
+input[type='text'].input-erro {
+  border-color: #e55b5b;
+  box-shadow: 0 0 0 3px rgba(229, 91, 91, 0.15);
 }
 
 button {
-    padding: 10px 16px;
-    font-size: 1em;
-    border: none;
-    border-radius: 4px;
-    background-color: #2563eb;
-    color: #fff;
-    cursor: pointer;
+  padding: 10px 18px;
+  font-size: 0.9em;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  background-color: #1d55c5;
+  color: #e0e0e0;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-    background-color: #1d4ed8;
+  background-color: #7ba3f2;
 }
 
 button:disabled {
-    background-color: #999;
-    cursor: not-allowed;
+  background-color: #2c3038;
+  color: #7d818c;
+  cursor: not-allowed;
 }
 
 #infoBox,
 #formatosBox,
 #conversorBox,
 #downloadLinkBox {
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 16px;
-    margin-top: 16px;
+  background-color: #1a1c22;
+  border: 1px solid #2c3038;
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-top: 18px;
+}
+
+#infoBox img {
+  border: 1px solid #2c3038;
+}
+
+#infoBox p {
+  color: #c4c7cf;
+  font-size: 0.92em;
+}
+
+#infoBox strong {
+  color: #e8e9ec;
 }
 
 #infoVideo,
-#infoAudio,
 #conversorVideo,
+#infoAudio,
 #conversorAudio {
-    margin: 10px 0;
+  border: 1px solid #2c3038;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin: 14px 0;
+}
+
+#infoVideo,
+#conversorVideo {
+  border-left: 3px solid #5b8def;
+}
+
+#infoAudio,
+#conversorAudio {
+  border-left: 3px solid #4fb286;
+}
+
+#infoVideo p {
+  margin: 10px 0 4px;
+  font-size: 0.95em;
+  font-weight: 700;
+  color: #4472c4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+#infoVideo p:first-child {
+  margin-top: 4px;
+}
+
+#infoVideo hr {
+  border: none;
+  border-top: 1px solid #2c3038;
+  margin: 10px 0;
 }
 
 label {
-    display: block;
-    margin: 4px 0;
-    cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9em;
 }
 
-h3 {
-    margin-bottom: 4px;
+label:hover {
+  background-color: #22252c;
 }
 
-#downloadLinkBox a {
-    display: inline-block;
-    margin-top: 8px;
-    color: #2563eb;
-    font-weight: bold;
-    text-decoration: none;
+input[type='radio'],
+input[type='checkbox'] {
+  accent-color: #5b8def;
+  cursor: pointer;
 }
 
-#downloadLinkBox a:hover {
-    text-decoration: underline;
+#legendasBox {
+  border: 1px solid #2c3038;
+  border-left: 3px solid #e0a339;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+
+#legendasBox h4 {
+  color: #e0a339;
+  margin-bottom: 4px;
+}
+
+#legendasAviso {
+  color: #a1824a !important;
+  font-size: 0.88em;
+  margin: 4px 0;
+}
+
+#legendasOpcoes small {
+  color: #7d818c;
 }
 
 .aviso-vermelho {
-    color: red;
-    font-weight: bold;
-    margin-left: 10px;
+  color: #e0a339;
+  font-weight: 600;
+  font-size: 0.85em;
+  margin-left: 10px;
 }
 
-spam {
-    font-weight: bold;
-    font-size: 1.1em;
+#downloadLinkBox {
+  border: 1px solid #2c3038;
+}
+
+#downloadLinkBox p {
+  margin: 0 0 8px;
+  color: #c4c7cf;
+  font-size: 0.9em;
+}
+
+#downloadLinkBox a {
+  display: inline-block;
+  color: #4fb286;
+  font-weight: 700;
+  text-decoration: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95em;
+}
+
+#downloadLinkBox a:hover {
+  text-decoration: underline;
 }

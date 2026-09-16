@@ -12,17 +12,15 @@
     <h1>YT Downloader</h1>
     <p id="backendStatus"></p>
 
-    <div>
+    <div class="barra-url">
         <input type="text" id="videoUrl" placeholder="URL do vídeo">
         <button id="buscarInfo" onclick="buscarInfo()">Enviar</button>
     </div>
 
-    <div id="infoBox">
-        <spam>Info</spam>
-    </div>
+    <div id="infoBox">Info</div>
 
     <div id="formatosBox">
-        <spam>Formatos</spam>
+        <h3>Formatos</h3>
         <div id="infoVideo">Video</div>
         <div id="infoAudio">Audio</div>
         <button id="downloadFormato" onclick="downloadFormato()">Download</button>
@@ -30,9 +28,17 @@
     </div>
     <br><br>
     <div id="conversorBox">
-        <spam>Conversor</spam>
+        <h3>Conversor</h3>
+
+        <div id="legendasBox">
+            <h4>Legendas <small class="aviso-rate-limit">(pode haver problemas com rate limiter do YouTube)</small></h4>
+            <p id="legendasAviso" style="color: gray;">Disponível apenas ao converter para MKV.</p>
+            <div id="legendasOpcoes" style="display: none;"></div>
+        </div>
+
         <div id="conversorVideo"></div>
         <div id="conversorAudio"></div>
+
         <button id="downloadConversor" onclick="downloadConversor()">Converter e fazer Download</button>
         <span id="avisoDownloadConversor" class="aviso-vermelho"></span>
     </div>
