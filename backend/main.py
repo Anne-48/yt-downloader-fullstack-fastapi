@@ -12,6 +12,7 @@ import subprocess
 import asyncio
 import json
 import time
+import glob
 
 app = FastAPI()
 
@@ -31,6 +32,10 @@ AUDIO_CODEC_MAP = {
     "wav": "pcm_s16le",
 }
 
+OUTPUT_EXT = {"vorbis": "ogg"}
+
+EXPIRE_SECONDS = 180
+
 # Guarda onde está o arquivo pronto de cada download_id, para /file usar
 downloads_store = {}
 
@@ -47,11 +52,18 @@ cancelled_ids = set()
 GRACE_PERIOD = 10
 
 
+def remove_files(download_id: str):
+    for path in glob.glob(f"downloads/{download_id}*"):
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 def cleanup_download(download_id: str):
     """Remove arquivo do disco e limpa todos os registros desse download_id"""
-    entry = downloads_store.pop(download_id, None)
-    if entry and os.path.exists(entry["path"]):
-        os.remove(entry["path"])
+    downloads_store.pop(download_id, None)
+    remove_files(download_id)
     progress_store.pop(download_id, None)
     last_seen.pop(download_id, None)
     cancelled_ids.discard(download_id)
@@ -70,6 +82,7 @@ def reaper_loop():
         for download_id, ts in list(last_seen.items()):
             status = progress_store.get(download_id, {}).get("status")
             if status in ("finished", "error"):
+                last_seen.pop(download_id, None)
                 continue
             if agora - ts > GRACE_PERIOD:
                 cancelled_ids.add(download_id)
@@ -164,6 +177,19 @@ def run_ffmpeg_embed_subtitles(download_id, video_path, subtitle_files, output_p
     return process.returncode == 0
 
 
+def fail_download(download_id, message):
+    remove_files(download_id)
+    progress_store[download_id] = {"status": "error", "error": message}
+    threading.Timer(EXPIRE_SECONDS, cleanup_download, args=[download_id]).start()
+
+
+def find_format(info, format_id):
+    for f in info.get("formats") or []:
+        if f.get("format_id") == format_id:
+            return f
+    return None
+
+
 def run_simple_download(download_id, url, format_id):
     """
     Worker do /download (sem conversão)
@@ -191,23 +217,26 @@ def run_simple_download(download_id, url, format_id):
             info = ydl.extract_info(url, download=False)
 
         # Acha na lista de formatos item que bate com format_id escolhido
-        selected_format = None
-        for f in info["formats"]:
-            if f["format_id"] == format_id:
-                selected_format = f
-                break
+        selected_format = find_format(info, format_id)
 
         if selected_format is None:
-            progress_store[download_id] = {"status": "error", "error": "Formato não encontrado"}
+            fail_download(download_id, "Formato não encontrado")
             return
 
-        # Se for áudio only baixa direto; se for vídeo mescla com o melhor áudio disponível
-        format_string = format_id if selected_format.get("vcodec") == "none" else f"{format_id}+bestaudio"
+        ext = selected_format.get("ext")
+        if selected_format.get("vcodec") == "none" or selected_format.get("acodec") not in (None, "none"):
+            format_string = format_id
+        else:
+            audio_ext = {"mp4": "m4a", "webm": "webm"}.get(ext)
+            format_string = (
+                f"{format_id}+bestaudio[ext={audio_ext}]/{format_id}+bestaudio"
+                if audio_ext else f"{format_id}+bestaudio"
+            )
 
         ydl_opts_download = {
             'format': format_string,
             'outtmpl': f'downloads/{download_id}.%(ext)s',  # Nome do arquivo = download_id
-            'merge_output_format': selected_format.get("ext"),  # Mantém o container do formato escolhido (evita cair pra mkv)
+            'merge_output_format': ext,  # Mantém o container do formato escolhido (evita cair pra mkv)
             'no_warnings': True,
             'noplaylist': True,
             'progress_hooks': [hook],
@@ -226,12 +255,12 @@ def run_simple_download(download_id, url, format_id):
         progress_store[download_id] = {"status": "finished", "percent": 100, "filename": display_name}
 
         # Agenda limpeza automática do arquivo pra 3 minutos
-        threading.Timer(180, cleanup_download, args=[download_id]).start()
+        threading.Timer(EXPIRE_SECONDS, cleanup_download, args=[download_id]).start()
 
     except DownloadCancelled:
         cleanup_download(download_id)
     except Exception as e:
-        progress_store[download_id] = {"status": "error", "error": str(e)}
+        fail_download(download_id, str(e))
 
 
 def run_convert_download(download_id, url, format_id, target_format, subtitles=None):
@@ -258,18 +287,14 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
         with yt_dlp.YoutubeDL(ydl_opts_info) as ydl:
             info = ydl.extract_info(url, download=False)
 
-        selected_format = None
-        for f in info["formats"]:
-            if f["format_id"] == format_id:
-                selected_format = f
-                break
+        selected_format = find_format(info, format_id)
 
         if selected_format is None:
-            progress_store[download_id] = {"status": "error", "error": "Formato não encontrado"}
+            fail_download(download_id, "Formato não encontrado")
             return
 
         if target_format not in AUDIO_FORMATS and target_format not in VIDEO_FORMATS:
-            progress_store[download_id] = {"status": "error", "error": "Formato de saída inválido"}
+            fail_download(download_id, "Formato de saída inválido")
             return
 
         is_audio_target = target_format in AUDIO_FORMATS
@@ -303,7 +328,10 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             ydl_opts_download['writesubtitles'] = True
             ydl_opts_download['writeautomaticsub'] = True
             ydl_opts_download['subtitleslangs'] = subtitles
-            ydl_opts_download['subtitlesformat'] = 'srt'
+            ydl_opts_download['subtitlesformat'] = 'srt/best'
+            ydl_opts_download['postprocessors'] = [
+                {'key': 'FFmpegSubtitlesConvertor', 'format': 'srt'},
+            ]
 
         with yt_dlp.YoutubeDL(ydl_opts_download) as ydl:
             info_dl = ydl.extract_info(url, download=True)
@@ -316,7 +344,8 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             cleanup_download(download_id)
             return
 
-        stored_path = f"downloads/{download_id}.{target_format}"
+        out_ext = OUTPUT_EXT.get(target_format, target_format)
+        stored_path = f"downloads/{download_id}.{out_ext}"
 
         # Descobre os caminhos reais dos arquivos .srt que o yt-dlp baixou
         # (o yt-dlp nomeia como "nome_do_video.idioma.srt", ao lado do vídeo)
@@ -373,21 +402,21 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             return
 
         if not ok:
-            progress_store[download_id] = {"status": "error", "error": "Falha na conversão"}
+            fail_download(download_id, "Falha na conversão")
             return
 
-        display_name = f"{sanitize_filename(info.get('title', 'video'))}.{target_format}"
+        display_name = f"{sanitize_filename(info.get('title', 'video'))}.{out_ext}"
         display_name = display_name.replace(" ", "_")
 
         downloads_store[download_id] = {"path": stored_path, "display_name": display_name}
         progress_store[download_id] = {"status": "finished", "percent": 100, "filename": display_name}
 
-        threading.Timer(300, cleanup_download, args=[download_id]).start()
+        threading.Timer(EXPIRE_SECONDS, cleanup_download, args=[download_id]).start()
 
     except DownloadCancelled:
         cleanup_download(download_id)
     except Exception as e:
-        progress_store[download_id] = {"status": "error", "error": str(e)}
+        fail_download(download_id, str(e))
 
 
 @app.get("/conversion-formats")
@@ -420,7 +449,8 @@ def get_info(request: Request, url: str):
     # Se algum formato de áudio tem language_preference==10 vídeo tem dublagem
     # (nesse caso, só os ==10 são o áudio original de verdade, o resto (-1) é dublagem)
     # Se nenhum formato tem ==10 não há dublagem, os -1 já são o único/original áudio
-    has_marked_original = any(f.get("language_preference") == 10 for f in info["formats"])
+    all_formats = info.get("formats") or []
+    has_marked_original = any(f.get("language_preference") == 10 for f in all_formats)
 
     formats = [
     {
@@ -431,7 +461,7 @@ def get_info(request: Request, url: str):
         "abr": f.get("abr"),
         "vcodec": f.get("vcodec"),
     }
-    for f in info["formats"]
+    for f in all_formats
     if (
         f.get("vcodec") != "none"                                                # mantém todo vídeo
         or f.get("language_preference") == 10                                    # mantém áudio original marcado
@@ -444,11 +474,11 @@ def get_info(request: Request, url: str):
     # Junta legenda humana + automática numa lista marcando o tipo de cada
     captions = [
         {"lang": lang, "type": "human"}
-        for lang in info.get("subtitles", {})
+        for lang in (info.get("subtitles") or {})
         if lang in ("en", "pt", "pt-BR")
     ] + [
         {"lang": lang, "type": "auto"}
-        for lang in info.get("automatic_captions", {})
+        for lang in (info.get("automatic_captions") or {})
         if lang in ("en-orig", "pt", "pt-BR")
     ]
 

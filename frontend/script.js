@@ -4,6 +4,8 @@ let ultimoEnvio = 0;
 // Guarda lista de legendas disponíveis do último /info chamado para renderizar checkboxes quando usuário escolher "mkv"
 let captionsAtuais = [];
 
+let urlAtual = '';
+
 function bloquearBotoes(bloquear) {
   // Trava/destrava os três botões principais de uma vez, usado enquanto download/conversão está em andamento
   document.getElementById('buscarInfo').disabled = bloquear;
@@ -102,6 +104,10 @@ function acompanharProgresso(downloadId, botao, textoFinal, avisoId) {
 
   eventSource.onerror = () => {
     eventSource.close();
+    sessionStorage.removeItem('activeDownload');
+    alert('Conexão com o servidor perdida. Tente novamente.');
+    bloquearBotoes(false);
+    botao.textContent = textoFinal;
   };
 }
 
@@ -162,13 +168,16 @@ function buscarInfo() {
       return response.json();
     })
     .then((data) => {
+      urlAtual = videoUrl;
+      const views =
+        data.view_count != null ? data.view_count.toLocaleString('pt-BR') : '?';
       document.getElementById('infoBox').innerHTML = `
                 <img src="${data.thumbnail}" alt="Thumbnail do vídeo" style="width: 320px; max-width: 100%; border-radius: 6px; display: block; margin-bottom: 12px;">
                 <h3>${data.title}</h3>
                 <p><strong>Canal:</strong> ${data.channel}</p>
                 <p><strong>Duração:</strong> ${formatarDuracao(data.duration)}</p>
-                <p><strong>Visualizações:</strong> ${data.view_count.toLocaleString('pt-BR')}</p>
-                <p><strong>Descrição:</strong> ${data.description}</p>
+                <p><strong>Visualizações:</strong> ${views}</p>
+                <p style="white-space: pre-wrap;"><strong>Descrição:</strong> ${data.description}</p>
             `;
 
       const audioFormats = data.formats.filter(
@@ -210,7 +219,7 @@ function buscarInfo() {
         audioFormats
           .map(
             (f) =>
-              `<label><input type="radio" name="formato" value="${f.format_id}"> ${f.ext} - ${Math.round(f.abr)}kbps (${(f.filesize / 1024 / 1024).toFixed(1)}MB)</label>`,
+              `<label><input type="radio" name="formato" value="${f.format_id}"> ${f.ext} - ${f.abr ? Math.round(f.abr) : '?'}kbps (${(f.filesize / 1024 / 1024).toFixed(1)}MB)</label>`,
           )
           .join('<br>');
 
@@ -229,6 +238,9 @@ function buscarInfo() {
       document.getElementById('infoBox').innerHTML =
         `<p>Erro ao buscar informações do vídeo.</p>`;
       inputUrl.classList.add('input-erro'); // deixa a borda do input vermelha
+      urlAtual = '';
+      document.getElementById('infoVideo').innerHTML = '';
+      document.getElementById('infoAudio').innerHTML = '';
 
       botao.textContent = 'Enviar';
       botao.style.backgroundColor = '';
@@ -237,7 +249,7 @@ function buscarInfo() {
 }
 
 function downloadFormato() {
-  const videoUrl = document.getElementById('videoUrl').value;
+  const videoUrl = urlAtual;
   const formatoSelecionado = document.querySelector(
     'input[name="formato"]:checked',
   );
@@ -258,21 +270,28 @@ function downloadFormato() {
       format_id: formatoSelecionado.value,
     }),
   })
-    .then((response) => response.json())
+    .then((response) => {
+      if (!response.ok) {
+        return response.json().then((err) => {
+          throw new Error(err.detail || 'Erro desconhecido');
+        });
+      }
+      return response.json();
+    })
     .then((data) => {
       // Backend responde na hora com só o download_id, o processo de verdade roda em background acompanhado via SSE
       iniciarAcompanhamento(data.download_id, 'formato');
     })
     .catch((error) => {
       console.error('Erro ao iniciar download:', error);
-      alert('Erro ao iniciar download.');
+      alert(`Erro ao iniciar download: ${error.message}`);
       bloquearBotoes(false);
       document.getElementById('downloadFormato').textContent = 'Download';
     });
 }
 
 function downloadConversor() {
-  const videoUrl = document.getElementById('videoUrl').value;
+  const videoUrl = urlAtual;
   const formatoSelecionado = document.querySelector(
     'input[name="formato"]:checked',
   );
@@ -333,6 +352,8 @@ function downloadConversor() {
 
 function formatarDuracao(segundos) {
   // Converte segundos (número puro que o backend manda) em "m:ss" ou "h:mm:ss"
+  if (segundos == null) return '?';
+  segundos = Math.round(segundos);
   const h = Math.floor(segundos / 3600);
   const m = Math.floor((segundos % 3600) / 60);
   const s = segundos % 60;
