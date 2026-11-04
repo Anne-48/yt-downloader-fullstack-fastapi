@@ -13,6 +13,7 @@ import asyncio
 import json
 import time
 import glob
+import tempfile
 
 app = FastAPI()
 
@@ -34,6 +35,10 @@ AUDIO_CODEC_MAP = {
 
 OUTPUT_EXT = {"vorbis": "ogg"}
 
+# Codecs usados quando o -c copy falha (webm só aceita VP8/VP9/AV1 + Opus/Vorbis)
+REENCODE_ARGS = {"webm": ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-row-mt", "1", "-c:a", "libopus"]}
+DEFAULT_REENCODE_ARGS = ["-c:v", "libx264", "-c:a", "aac"]
+
 EXPIRE_SECONDS = 180
 
 # Guarda onde está o arquivo pronto de cada download_id, para /file usar
@@ -50,6 +55,9 @@ cancelled_ids = set()
 
 # Quantos segundos sem nenhuma conexão SSE até considerar "página fechada" e cancelar download/conversão
 GRACE_PERIOD = 10
+
+# de quanto em quanto tempo o reaper varre a pasta downloads/ atrás de arquivos órfãos
+SWEEP_INTERVAL = 60
 
 
 def remove_files(download_id: str):
@@ -69,13 +77,35 @@ def cleanup_download(download_id: str):
     cancelled_ids.discard(download_id)
 
 
+def sweep_orphan_files(agora):
+    """
+    Apaga da pasta downloads/ os arquivos órfãos com mais de EXPIRE_SECONDS
+    Órfão = download_id que não está mais em memória (servidor reiniciou, --reload, container parado)
+    Downloads em andamento ou prontos continuam com o timer de sempre
+    """
+    for path in glob.glob("downloads/*"):
+        # o nome começa com o download_id (uuid de 36 caracteres)
+        download_id = os.path.basename(path)[:36]
+
+        if download_id in progress_store or download_id in downloads_store:
+            continue
+
+        try:
+            if agora - os.path.getmtime(path) > EXPIRE_SECONDS:
+                os.remove(path)
+        except OSError:
+            pass
+
+
 def reaper_loop():
     """
     Roda em background (thread separada)
     Checa a cada 1s se algum download ficou sem conexão SSE ativa por mais que GRACE_PERIOD
     Se sim, marca como cancelado o download/conversão em andamento
     Checa cancelled_ids e aborta
+    A cada SWEEP_INTERVAL, apaga os arquivos órfãos da pasta downloads/
     """
+    last_sweep = 0
     while True:
         time.sleep(1)
         agora = time.time()
@@ -86,6 +116,10 @@ def reaper_loop():
                 continue
             if agora - ts > GRACE_PERIOD:
                 cancelled_ids.add(download_id)
+
+        if agora - last_sweep >= SWEEP_INTERVAL:
+            sweep_orphan_files(agora)
+            last_sweep = agora
 
 
 # Inicia reaper quando servidor sobe
@@ -104,6 +138,15 @@ def parse_out_time(value):
     except Exception:
         return None
 
+def finish_ffmpeg(process, stderr_file):
+    process.wait()
+    if process.returncode != 0:
+        stderr_file.seek(0)
+        print("ffmpeg falhou:\n" + "".join(stderr_file.readlines()[-15:]), flush=True)
+    stderr_file.close()
+    return process.returncode == 0
+
+
 #wrapper para ffmpeg
 def run_ffmpeg_with_progress(download_id, input_path, output_path, ffmpeg_args, total_duration):
     """
@@ -112,12 +155,14 @@ def run_ffmpeg_with_progress(download_id, input_path, output_path, ffmpeg_args, 
     Usado tanto pra conversão simples (sem legenda) quanto pra extração de áudio
     """
     cmd = ["ffmpeg", "-y", "-i", input_path, *ffmpeg_args, "-progress", "pipe:1", "-nostats", output_path]
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    stderr_file = tempfile.TemporaryFile(mode="w+")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=stderr_file, text=True)
 
     for line in process.stdout:
         # Se reaper marcou esse download como cancelado, mata o processo ffmpeg
         if download_id in cancelled_ids:
             process.kill()
+            stderr_file.close()
             return False
 
         line = line.strip()
@@ -127,8 +172,7 @@ def run_ffmpeg_with_progress(download_id, input_path, output_path, ffmpeg_args, 
                 percent = min(seconds_done / total_duration * 100, 100)
                 progress_store[download_id] = {"status": "converting", "percent": round(percent, 1)}
 
-    process.wait()
-    return process.returncode == 0  # True se o ffmpeg terminou sem erro
+    return finish_ffmpeg(process, stderr_file)
 
 
 def run_ffmpeg_embed_subtitles(download_id, video_path, subtitle_files, output_path, video_args, total_duration):
@@ -159,11 +203,13 @@ def run_ffmpeg_embed_subtitles(download_id, video_path, subtitle_files, output_p
 
     cmd += ["-progress", "pipe:1", "-nostats", output_path]
 
-    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    stderr_file = tempfile.TemporaryFile(mode="w+")
+    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=stderr_file, text=True)
 
     for line in process.stdout:
         if download_id in cancelled_ids:
             process.kill()
+            stderr_file.close()
             return False
 
         line = line.strip()
@@ -173,8 +219,7 @@ def run_ffmpeg_embed_subtitles(download_id, video_path, subtitle_files, output_p
                 percent = min(seconds_done / total_duration * 100, 100)
                 progress_store[download_id] = {"status": "converting", "percent": round(percent, 1)}
 
-    process.wait()
-    return process.returncode == 0
+    return finish_ffmpeg(process, stderr_file)
 
 
 def fail_download(download_id, message):
@@ -298,6 +343,10 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             return
 
         is_audio_target = target_format in AUDIO_FORMATS
+
+        if not is_audio_target and selected_format.get("vcodec") == "none":
+            fail_download(download_id, "Formato de origem é só áudio: escolha um formato de vídeo para converter para vídeo")
+            return
         # Legenda só é aceita se: foi pedida, o alvo é vídeo (não áudio), e o container é mkv
         want_subtitles = bool(subtitles) and not is_audio_target and target_format == "mkv"
 
@@ -376,7 +425,7 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             if not ok and download_id not in cancelled_ids:
                 ok = run_ffmpeg_embed_subtitles(
                     download_id, raw_filename, subtitle_files, stored_path,
-                    ["-c:v", "libx264", "-c:a", "aac"], info.get("duration"),
+                    REENCODE_ARGS.get(target_format, DEFAULT_REENCODE_ARGS), info.get("duration"),
                 )
 
         else:
@@ -385,7 +434,7 @@ def run_convert_download(download_id, url, format_id, target_format, subtitles=N
             if not ok and download_id not in cancelled_ids:
                 ok = run_ffmpeg_with_progress(
                     download_id, raw_filename, stored_path,
-                    ["-c:v", "libx264", "-c:a", "aac"], info.get("duration"),
+                    REENCODE_ARGS.get(target_format, DEFAULT_REENCODE_ARGS), info.get("duration"),
                 )
 
         # Limpa os arquivos temporários (vídeo bruto + legendas .srt) já embutidas ou não utilizadas mais
