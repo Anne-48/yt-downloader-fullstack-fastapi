@@ -1,0 +1,9 @@
+.git
+.gitignore
+**/venv
+**/__pycache__
+**/*.pyc
+backend/downloads
+*.tar
+README.md
+LICENSE
