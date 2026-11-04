@@ -13,7 +13,7 @@ API fullstack para buscar informações de vídeos do YouTube, baixar nos format
 - Legendas embutidas no vídeo (múltiplos idiomas ao mesmo tempo), disponível apenas ao converter para mkv
 - Progresso em tempo real (baixando % / convertendo %) via Server-Sent Events (SSE)
 - Cancelamento automático do processo caso a página seja fechada (com tolerância de 10s)
-- Link de download temporário (expira em 3 minutos), sem manter arquivos salvos no servidor
+- Link de download temporário (expira em 3 minutos), sem manter arquivos salvos no servidor; arquivos que sobram de um reinício são apagados automaticamente
 - Containerizado com Docker em único container: o FastAPI serve frontend estático
 
 ## Tecnologias
@@ -40,6 +40,8 @@ API fullstack para buscar informações de vídeos do YouTube, baixar nos format
 ### Com Docker (recomendado)
 
 Um único container: o FastAPI serve tanto a API quanto o frontend (arquivos estáticos), tudo na mesma porta
+
+Funciona igual com Podman: troque `docker` por `podman` nos comandos abaixo
 
 **Build da imagem:**
 
@@ -114,7 +116,8 @@ Acesse `http://localhost:8000`
 ## Estrutura do projeto
 
 ```
-yt_api/
+yt-downloader-fullstack-fastapi/
+├── .dockerignore
 ├── Dockerfile
 ├── backend/
 │   ├── main.py
@@ -130,11 +133,12 @@ yt_api/
 - Sem autenticação de usuário
 - Sem rate limiting (uso pessoal, local)
 - Progresso fica em memória, reiniciado junto com o servidor
+- Depois de um reinício, os arquivos que estavam na pasta `downloads/` são apagados em até 4 minutos (3 de validade + até 1 da varredura)
 - Progresso de conversão é calculado a partir da duração total do vídeo, não é um percentual exato de todos os cenários
 - Conversão de vídeo tenta copiar o stream sem recodificar (`-c copy`); quando o codec não é compatível com o container de destino, recodifica com `libx264`/`aac`
 - Legendas filtradas para inglês (original) e português brasileiro (`pt-BR`); vídeos que só oferecem `pt` genérico (sem distinguir Brasil/Portugal) não mostram legenda em pt-BR
 
 ## Autor
 
-Anne Szczypior Pinheiro Lima
+Anne S. Pinheiro Lima
 [LinkedIn](https://www.linkedin.com/in/anne-s-pinheiro-lima-16a607424/)
